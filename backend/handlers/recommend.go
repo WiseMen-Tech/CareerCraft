@@ -3,8 +3,8 @@ package handlers
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"CareerConnect/models"
-	"CareerConnect/utils"
+	"careerconnect/backend/models"
+	"careerconnect/backend/utils"
 	"sort"
 )
 

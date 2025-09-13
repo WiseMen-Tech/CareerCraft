@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"CareerConnect/handlers"
+	"careerconnect/backend/handlers"
 
 	"github.com/robfig/cron/v3"
 )

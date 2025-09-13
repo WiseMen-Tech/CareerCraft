@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"CareerConnect/models"
+	"careerconnect/backend/models"
 	"strings"
 )
 

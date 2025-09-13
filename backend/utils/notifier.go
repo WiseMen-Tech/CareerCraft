@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"CareerConnect/models"
+	"careerconnect/backend/models"
 )
 
 // Mock notification system (replace with Twilio/Gupshup API)

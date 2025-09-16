@@ -1,33 +1,26 @@
 package main
 
 import (
-	"fmt"
-	"github.com/gin-gonic/gin"
-	"net/http"
+	"careerconnect/backend/database"
 	"careerconnect/backend/handlers"
-
-	"github.com/robfig/cron/v3"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"log"
+	"os"
 )
 
 func main() {
-	router := gin.Default()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
-	// Health Check
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "SIH 2025 Backend running ✅"})
-	})
+	database.ConnectDB()
 
-	// Routes
-	router.POST("/candidate", handlers.RecommendHandler)
+	r := gin.Default()
+	r.POST("/register", handlers.RegisterUser)
+	r.GET("/users", handlers.GetUsers)
 
-	// Start cron job for alerts
-	c := cron.New()
-	c.AddFunc("@daily", func() {
-		fmt.Println("🔔 Running daily deadline check...")
-		handlers.CheckDeadlines()
-	})
-	c.Start()
-
-	// Start server
-	router.Run(":8080")
+	port := os.Getenv("PORT")
+	r.Run(":" + port)
 }

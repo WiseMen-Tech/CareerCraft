@@ -19,7 +19,6 @@ func main() {
 
 	r := gin.Default()
 	r.POST("/register", handlers.RegisterUser)
-	r.GET("/users", handlers.GetUsers)
 
 	port := os.Getenv("PORT")
 	r.Run(":" + port)

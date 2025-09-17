@@ -17,5 +17,5 @@ type UserProfile struct {
 	Interests []string           `bson:"interests" json:"interests"`
 	Location  string             `bson:"location" json:"location"`
 	Phone     string             `bson:"phone" json:"phone"`
-	ResumeURL string             `bson:"resumeUrl,omitempty" json:"resumeUrl,omitempty"`
+	ResumeURL []string             `bson:"resumes,omitempty" json:"resumes,omitempty"`
 }

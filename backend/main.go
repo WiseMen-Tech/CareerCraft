@@ -5,10 +5,11 @@ import (
 	"careerconnect/backend/handlers"
 	"careerconnect/backend/middleware"
 
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
+
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -26,7 +27,11 @@ func main() {
 	auth := r.Group("/")
 	auth.Use(middleware.AuthMiddleware())
 	auth.POST("/profile", handlers.CreateProfile)
-	auth.GET("/users", handlers.GetMyProfile)
+	auth.GET("/me", handlers.GetMyProfile)
+	auth.PUT("/profile", handlers.UpdateProfile)
+	auth.POST("/resumes", handlers.UploadResume)
+	auth.DELETE("/resumes/:filename", handlers.DeleteResume)
+	auth.POST("/logout", handlers.LogoutUser)
 
 	port := os.Getenv("PORT")
 	r.Run(":" + port)

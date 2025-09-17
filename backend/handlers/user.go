@@ -125,17 +125,18 @@ func CreateProfile(c *gin.Context) {
 	interests := c.PostFormArray("interests")
 
 	// Handle optional resume file
-	var resumePath string
+	var resumes []string
 	file, err := c.FormFile("resume")
-	if err == nil {
+	if err == nil { // resume was uploaded
 		uploadDir := "./uploads"
 		_ = os.MkdirAll(uploadDir, os.ModePerm)
 
-		resumePath = fmt.Sprintf("%s/%s_%s", uploadDir, userId.Hex(), file.Filename)
+		resumePath := fmt.Sprintf("%s/%s_%s", uploadDir, userId.Hex(), file.Filename)
 		if err := c.SaveUploadedFile(file, resumePath); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving resume"})
 			return
 		}
+		resumes = append(resumes, resumePath)
 	}
 
 	// Create profile object
@@ -147,7 +148,7 @@ func CreateProfile(c *gin.Context) {
 		Interests: interests,
 		Location:  location,
 		Phone:     phone,
-		ResumeURL: resumePath, // empty string if not uploaded
+		ResumeURL: resumes, 
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -182,4 +183,126 @@ func GetMyProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, profile)
+}
+// UpdateProfile handles PUT /users/profile
+func UpdateProfile(c *gin.Context) {
+	userIdVal, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userId, _ := primitive.ObjectIDFromHex(userIdVal.(string))
+
+	var updateData models.UserProfile
+	if err := c.ShouldBindJSON(&updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	update := bson.M{
+		"$set": bson.M{
+			"education": updateData.Education,
+			"skills":    updateData.Skills,
+			"interests": updateData.Interests,
+			"location":  updateData.Location,
+			"phone":     updateData.Phone,
+		},
+	}
+
+	_, err := database.ProfileCollection.UpdateOne(ctx, bson.M{"userId": userId}, update)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "✅ Profile updated successfully"})
+}
+// UploadResume handles POST /users/resumes
+func UploadResume(c *gin.Context) {
+	userIdVal, _ := c.Get("userId")
+	userId, _ := primitive.ObjectIDFromHex(userIdVal.(string))
+
+	file, err := c.FormFile("resume")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Resume file is required"})
+		return
+	}
+
+	uploadDir := "./uploads"
+	_ = os.MkdirAll(uploadDir, os.ModePerm)
+
+	// Store uniquely named file
+	filePath := fmt.Sprintf("%s/%s_%s", uploadDir, userId.Hex(), file.Filename)
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving resume"})
+		return
+	}
+
+	// Append resume to user's profile
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err = database.ProfileCollection.UpdateOne(ctx,
+		bson.M{"userId": userId},
+		bson.M{"$push": bson.M{"resumes": filePath}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving resume reference"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "✅ Resume uploaded successfully", "resume": filePath})
+}
+// DeleteResume handles DELETE /users/resumes/:filename
+func DeleteResume(c *gin.Context) {
+	userIdVal, _ := c.Get("userId")
+	userId, _ := primitive.ObjectIDFromHex(userIdVal.(string))
+
+	filename := c.Param("filename")
+	filePath := fmt.Sprintf("./uploads/%s_%s", userId.Hex(), filename)
+
+	// Delete file locally
+	if err := os.Remove(filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error deleting resume file"})
+		return
+	}
+
+	// Remove from MongoDB
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := database.ProfileCollection.UpdateOne(ctx,
+		bson.M{"userId": userId},
+		bson.M{"$pull": bson.M{"resumes": filePath}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating profile resumes"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "✅ Resume deleted successfully"})
+}
+
+// LogoutUser handles POST /logout
+func LogoutUser(c *gin.Context) {
+	tokenString := c.GetHeader("Authorization")
+	if tokenString == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
+		return
+	}
+
+	// Store token in blacklist
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := database.BlacklistCollection.InsertOne(ctx, bson.M{"token": tokenString})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error blacklisting token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "✅ Logged out successfully"})
 }

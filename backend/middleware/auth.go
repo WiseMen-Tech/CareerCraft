@@ -3,10 +3,16 @@ package middleware
 import (
 	"net/http"
 	"os"
+	"time"
+	"context"
 	"strings"
+
+	"careerconnect/backend/database"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.mongodb.org/mongo-driver/bson"
+	// "go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // AuthMiddleware checks JWT token
@@ -36,11 +42,22 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
-if ok && token.Valid {
-    if userId, exists := claims["userId"].(string); exists {
-        c.Set("userId", userId)
-    }
-}
+		if ok && token.Valid {
+			if userId, exists := claims["userId"].(string); exists {
+				c.Set("userId", userId)
+			}
+		}
+
+		// inside AuthMiddleware
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		count, _ := database.BlacklistCollection.CountDocuments(ctx, bson.M{"token": authHeader})
+		if count > 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has been revoked"})
+			c.Abort()
+			return
+		}
 
 		c.Next()
 	}

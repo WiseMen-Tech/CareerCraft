@@ -13,6 +13,7 @@ import (
 
 var Client *mongo.Client
 var UserCollection *mongo.Collection
+var ProfileCollection *mongo.Collection
 
 func ConnectDB() {
 	uri := os.Getenv("MONGO_URI")
@@ -35,6 +36,7 @@ func ConnectDB() {
 
 	Client = client
 	UserCollection = client.Database(os.Getenv("MONGO_DB")).Collection("users")
+	ProfileCollection = client.Database(os.Getenv("MONGO_DB")).Collection("profiles")
 
 	fmt.Println("✅ Connected to MongoDB Atlas")
 }
